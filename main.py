@@ -1,6 +1,15 @@
+import os
 import sys
+import requests
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt, QTimer
+
+# API 설정
+IP_ADDRESS = '127.0.0.1'
+PORT = '14043'
+API_KEY = '1234'
+CLIP_DIR = 'tmp'
+BACK_TO_LIVE = False
 
 def main():
     app = QApplication(sys.argv)
@@ -72,15 +81,40 @@ def main():
             # 마지막 숫자를 추출하고 1 증가
             current_number = int(text.split()[-1])
             new_number = current_number + 1
-            line_edit.setText(f'Take {new_number}')
+            line_edit.setText(f'Take_{new_number}')
         except (ValueError, IndexError):
             # 숫자를 찾을 수 없으면 'Take 1'로 초기화
-            line_edit.setText('Take 1')
+            line_edit.setText('Take_1')
         stop_blinking()  # 네모 버튼 클릭 시 깜빡임 멈추기
 
-    # 버튼 클릭 시 타이머 제어
-    circle_button.clicked.connect(start_blinking)
-    square_button.clicked.connect(increment_take)
+    # 녹화 시작 함수
+    def start_recording():
+        start_blinking()
+        clip_name = os.path.join(CLIP_DIR, line_edit.text())
+        url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/start"
+        data = {
+            'filename': clip_name,
+            'time': '',  # 필요 시 여기에 타임코드 추가
+        }
+        response = requests.post(url, json=data)
+        print(f"Start recording: {response.status_code}")
+
+    # 녹화 중지 함수
+    def stop_recording():
+        increment_take()
+        clip_name = os.path.join(CLIP_DIR, line_edit.text())
+        url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/stop"
+        data = {
+            'filename': clip_name,
+            'time': '',  # 필요 시 여기에 타임코드 추가
+            'back_to_live': BACK_TO_LIVE,
+        }
+        response = requests.post(url, json=data)
+        print(f"Stop recording: {response.status_code}")
+
+    # 버튼 클릭 시 타이머 제어 및 녹화 시작/중지
+    circle_button.clicked.connect(start_recording)
+    square_button.clicked.connect(stop_recording)
     
     window.show()
     sys.exit(app.exec_())
