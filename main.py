@@ -1,15 +1,32 @@
 import os
 import sys
+import asyncio
+import json
 import requests
+import websockets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt, QTimer
 
 # API 설정
+OBS_WEBSOCKET_URL = "ws://localhost:4455"  # 웹소켓 서버 URL
+OBS_PASSWORD = "your_password"  # 설정한 웹소켓 비밀번호
 IP_ADDRESS = '127.0.0.1'
 PORT = '14053'
 API_KEY = '1234'
 CLIP_DIR = 'tmp'
 BACK_TO_LIVE = False
+
+async def obs_send_command(command, **kwargs):
+    async with websockets.connect(OBS_WEBSOCKET_URL) as websocket:
+        await websocket.send(json.dumps({
+            "op": 6,  # Request type
+            "d": {
+                "requestType": command,
+                "requestData": kwargs
+            }
+        }))
+        response = await websocket.recv()
+        return json.loads(response)
 
 def main():
     app = QApplication(sys.argv)
@@ -87,10 +104,11 @@ def main():
             line_edit.setText('Take_1')
         stop_blinking()  # 네모 버튼 클릭 시 깜빡임 멈추기
 
-    # 녹화 시작 함수
+
     def start_recording():
         start_blinking()
         clip_name = os.path.join(CLIP_DIR, line_edit.text())
+        asyncio.run(obs_send_command("StartRecord"))
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/start"
         data = {
             'filename': clip_name,
@@ -99,10 +117,10 @@ def main():
         response = requests.post(url, json=data)
         print(f"Start recording: {response.status_code}")
 
-    # 녹화 중지 함수
     def stop_recording():
         increment_take()
         clip_name = os.path.join(CLIP_DIR, line_edit.text())
+        asyncio.run(obs_send_command("StopRecord"))
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/stop"
         data = {
             'filename': clip_name,
@@ -111,6 +129,7 @@ def main():
         }
         response = requests.post(url, json=data)
         print(f"Stop recording: {response.status_code}")
+
 
     # 버튼 클릭 시 타이머 제어 및 녹화 시작/중지
     circle_button.clicked.connect(start_recording)
