@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt, QTimer
 
 # API 설정
 IP_ADDRESS = '127.0.0.1'
-PORT = '14043'
+PORT = '14053'
 API_KEY = '1234'
 CLIP_DIR = 'tmp'
 BACK_TO_LIVE = False
@@ -26,7 +26,7 @@ def main():
     
     # QLineEdit 위젯 추가
     line_edit = QLineEdit()
-    line_edit.setText('Take 1')  # 처음에 'Take 1' 설정
+    line_edit.setText('Take_1')  # 처음에 'Take 1' 설정
     line_edit.setPlaceholderText('여기에 경로를 입력해주세요.')
     main_layout.addWidget(line_edit)
     
