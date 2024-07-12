@@ -1,114 +1,130 @@
 import os
 import sys
-import asyncio
 import json
 import requests
-import websockets
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout
+import obsws_python as obs
+
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 from PyQt5.QtCore import Qt, QTimer
 
 # API 설정
-OBS_WEBSOCKET_URL = "ws://localhost:4455"  # 웹소켓 서버 URL
-OBS_PASSWORD = "your_password"  # 설정한 웹소켓 비밀번호
+OBS_WEBSOCKET_PORT = 4455  # 웹소켓 서버 URL
+OBS_WEBSOCKET_PASSWORD = "123456"  # 설정한 웹소켓 비밀번호
 IP_ADDRESS = '127.0.0.1'
 PORT = '14053'
 API_KEY = '1234'
 CLIP_DIR = 'tmp'
 BACK_TO_LIVE = False
 
-async def obs_send_command(command, **kwargs):
-    async with websockets.connect(OBS_WEBSOCKET_URL) as websocket:
-        await websocket.send(json.dumps({
-            "op": 6,  # Request type
-            "d": {
-                "requestType": command,
-                "requestData": kwargs
-            }
-        }))
-        response = await websocket.recv()
-        return json.loads(response)
+# QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 
-def main():
-    app = QApplication(sys.argv)
-    window = QMainWindow()
-    window.setWindowTitle('PyQt5 위젯 예제')
-    window.setGeometry(100, 100, 200, 100)  # 윈도우 크기 조정
+class CWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+        self.is_recording = False
+        # 타이머 설정
+        self.timer = QTimer(self)
+        self.timer.setInterval(500)  # 500 밀리초마다 타이머 실행
+        self.timer.timeout.connect(self.toggle_button_color)
+        # OBS Studio 연결
 
-    central_widget = QWidget(window)
-    window.setCentralWidget(central_widget)
-    
-    # 레이아웃 설정
-    main_layout = QVBoxLayout()
-    central_widget.setLayout(main_layout)
-    
-    # QLineEdit 위젯 추가
-    line_edit = QLineEdit()
-    line_edit.setText('Take_1')  # 처음에 'Take 1' 설정
-    line_edit.setPlaceholderText('여기에 경로를 입력해주세요.')
-    main_layout.addWidget(line_edit)
-    
-    # 버튼 레이아웃 설정
-    button_layout = QHBoxLayout()
-    main_layout.addLayout(button_layout)
-    
-    # 동그라미 버튼 추가
-    circle_button = QPushButton('●')
-    circle_button.setFixedSize(50, 50)  # 버튼 크기 조정
-    circle_button.setStyleSheet("color: black;")  # 처음에는 검정색
-    button_layout.addWidget(circle_button)
-    
-    # 네모 버튼 추가
-    square_button = QPushButton('■')
-    square_button.setFixedSize(50, 50)  # 버튼 크기 조정
-    button_layout.addWidget(square_button)
-    
-    # 버튼을 양쪽 끝으로 배치하기 위해 공간 추가
-    button_layout.addStretch(1)
-    button_layout.addWidget(circle_button)
-    button_layout.addStretch(1)
-    button_layout.addWidget(square_button)
-    button_layout.addStretch(1)
+    def initUI(self):
+        self.setWindowTitle('Mocap Controller')
+        self.setGeometry(100, 100, 200, 100)
 
-    # 타이머 설정
-    timer = QTimer(window)
-    timer.setInterval(500)  # 500 밀리초마다 타이머 실행
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+
+        # QLineEdit 위젯 추가
+        self.line_edit = QLineEdit()
+        self.line_edit.setText('Take_1')  # 처음에 'Take 1' 설정
+        self.line_edit.setPlaceholderText('여기에 경로를 입력해주세요.')
+        main_layout.addWidget(self.line_edit)
+        
+        # 버튼 레이아웃 설정
+        button_layout = QHBoxLayout()
+        main_layout.addLayout(button_layout)
+        
+        # 동그라미 버튼 추가
+        self.circle_button = QPushButton('●')
+        self.circle_button.setFixedSize(50, 50)  # 버튼 크기 조정
+        self.circle_button.setStyleSheet("color: black;")  # 처음에는 검정색
+        button_layout.addWidget(self.circle_button)
+        
+        self.circle_button.clicked.connect(self.start_recording)
+        # 네모 버튼 추가
+        self.square_button = QPushButton('■')
+        self.square_button.setFixedSize(50, 50)  # 버튼 크기 조정
+        self.square_button.clicked.connect(self.stop_recording)
+        button_layout.addWidget(self.square_button)
+        
+        # 버튼을 양쪽 끝으로 배치하기 위해 공간 추가
+        button_layout.addStretch(1)
+        button_layout.addWidget(self.circle_button)
+        button_layout.addStretch(1)
+        button_layout.addWidget(self.square_button)
+        button_layout.addStretch(1)
+
+        self.show()
 
     # 타이머를 시작 및 중지하는 함수
-    def start_blinking():
-        timer.start()
+    def start_blinking(self):
+        self.timer.start()
 
-    def stop_blinking():
-        timer.stop()
-        circle_button.setStyleSheet("color: black;")  # 깜빡임 멈추고 검정색으로 설정
+    def stop_blinking(self):
+        self.timer.stop()
+        self.circle_button.setStyleSheet("color: black;")  # 깜빡임 멈추고 검정색으로 설정
 
     # 타이머가 만료될 때 호출되는 함수
-    def toggle_button_color():
-        current_color = circle_button.styleSheet()
+    def toggle_button_color(self):
+        current_color = self.circle_button.styleSheet()
         if "color: red" in current_color:
-            circle_button.setStyleSheet("color: black;")
+            self.circle_button.setStyleSheet("color: black;")
         else:
-            circle_button.setStyleSheet("color: red;")
+            self.circle_button.setStyleSheet("color: red;")
 
-    timer.timeout.connect(toggle_button_color)
 
     # 네모 버튼 클릭 시 텍스트 박스의 숫자를 증가 및 업데이트
-    def increment_take():
-        text = line_edit.text()
+    def increment_take(self):
+        text = self.line_edit.text()
+        # 마지막 숫자를 추출하고 1 증가
+        text_split = text.split('_')
+        current_number = int(text_split[-1])
+        text_split[-1] = str(current_number + 1)
+        text_increment = '_'.join(text_split)
+        self.line_edit.setText(text_increment)
+        self.stop_blinking()  # 네모 버튼 클릭 시 깜빡임 멈추기
+
+    def start_recording(self):
+        if self.is_recording:
+            return
         try:
-            # 마지막 숫자를 추출하고 1 증가
-            current_number = int(text.split()[-1])
-            new_number = current_number + 1
-            line_edit.setText(f'Take_{new_number}')
+            current_number = int(self.line_edit.text().split('_')[-1])
         except (ValueError, IndexError):
-            # 숫자를 찾을 수 없으면 'Take 1'로 초기화
-            line_edit.setText('Take_1')
-        stop_blinking()  # 네모 버튼 클릭 시 깜빡임 멈추기
+            error_dialog = QMessageBox(self)
+            error_dialog.setMaximumSize(200, 100)
+            error_dialog.setIcon(QMessageBox.Warning)
+            error_dialog.setWindowTitle("Error")
+            error_dialog.setText("파일명의 형식이 잘못되었습니다. '_숫자' 형식으로 입력해주세요.")
+            error_dialog.exec_()
+            return
+        
+        # OBS Studio 녹화 시작
+        try:
+            cl = obs.ReqClient(host='localhost', port=OBS_WEBSOCKET_PORT, password=OBS_WEBSOCKET_PASSWORD, timeout=3)
+            cl.start_record()
+            cl.disconnect()
+        except ConnectionRefusedError:
+            error_dialog = QMessageBox(self)
+            error_dialog.setMaximumSize(200, 100)
+            error_dialog.setIcon(QMessageBox.Critical)
+            error_dialog.setWindowTitle("Error")
+            error_dialog.setText("OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
+            error_dialog.exec_()
+            return
 
-
-    def start_recording():
-        start_blinking()
-        clip_name = os.path.join(CLIP_DIR, line_edit.text())
-        asyncio.run(obs_send_command("StartRecord"))
+        clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/start"
         data = {
             'filename': clip_name,
@@ -117,10 +133,27 @@ def main():
         response = requests.post(url, json=data)
         print(f"Start recording: {response.status_code}")
 
-    def stop_recording():
-        increment_take()
-        clip_name = os.path.join(CLIP_DIR, line_edit.text())
-        asyncio.run(obs_send_command("StopRecord"))
+        self.is_recording = True
+        self.start_blinking()
+        self.line_edit.setEnabled(False)
+
+    def stop_recording(self):
+        if not self.is_recording:
+            return
+        # OBS Studio 녹화 중지
+        try:
+            cl = obs.ReqClient(host='localhost', port=OBS_WEBSOCKET_PORT, password=OBS_WEBSOCKET_PASSWORD, timeout=3)
+            cl.stop_record()
+            cl.disconnect()
+        except ConnectionRefusedError:
+            error_dialog = QMessageBox(self)
+            error_dialog.setMaximumSize(200, 100)
+            error_dialog.setIcon(QMessageBox.Critical)
+            error_dialog.setWindowTitle("Error")
+            error_dialog.setText("OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
+            error_dialog.exec_()
+
+        clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/stop"
         data = {
             'filename': clip_name,
@@ -130,13 +163,14 @@ def main():
         response = requests.post(url, json=data)
         print(f"Stop recording: {response.status_code}")
 
+        self.is_recording = False
+        self.increment_take()
+        self.line_edit.setEnabled(True)
 
-    # 버튼 클릭 시 타이머 제어 및 녹화 시작/중지
-    circle_button.clicked.connect(start_recording)
-    square_button.clicked.connect(stop_recording)
     
-    window.show()
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    w = CWidget()
     sys.exit(app.exec_())
 
-if __name__ == '__main__':
-    main()
+
