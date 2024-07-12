@@ -4,7 +4,7 @@ import json
 import requests
 import obsws_python as obs
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
+from PyQt5.QtWidgets import QApplication, QFileDialog, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 from PyQt5.QtCore import Qt, QTimer
 
 # API 설정
@@ -23,11 +23,11 @@ class CWidget(QWidget):
         super().__init__()
         self.initUI()
         self.is_recording = False
+        self.obs_save_dir_path = None
         # 타이머 설정
         self.timer = QTimer(self)
         self.timer.setInterval(500)  # 500 밀리초마다 타이머 실행
         self.timer.timeout.connect(self.toggle_button_color)
-        # OBS Studio 연결
 
     def initUI(self):
         self.setWindowTitle('Mocap Controller')
@@ -42,6 +42,10 @@ class CWidget(QWidget):
         self.line_edit.setPlaceholderText('여기에 경로를 입력해주세요.')
         main_layout.addWidget(self.line_edit)
         
+        self.text_button = QPushButton('OBS save path')
+        self.text_button.clicked.connect(self.set_obs_save_path)
+        main_layout.addWidget(self.text_button)
+
         # 버튼 레이아웃 설정
         button_layout = QHBoxLayout()
         main_layout.addLayout(button_layout)
@@ -67,6 +71,11 @@ class CWidget(QWidget):
         button_layout.addStretch(1)
 
         self.show()
+
+    def set_obs_save_path(self):
+        self.obs_save_dir_path = QFileDialog.getExistingDirectory(self, 'Select OBS save path')
+        if os.name == 'nt':
+            self.obs_save_dir_path = self.obs_save_dir_path.replace('/', '\\')
 
     # 타이머를 시작 및 중지하는 함수
     def start_blinking(self):
@@ -96,34 +105,7 @@ class CWidget(QWidget):
         self.line_edit.setText(text_increment)
         self.stop_blinking()  # 네모 버튼 클릭 시 깜빡임 멈추기
 
-    def start_recording(self):
-        if self.is_recording:
-            return
-        try:
-            current_number = int(self.line_edit.text().split('_')[-1])
-        except (ValueError, IndexError):
-            error_dialog = QMessageBox(self)
-            error_dialog.setMaximumSize(200, 100)
-            error_dialog.setIcon(QMessageBox.Warning)
-            error_dialog.setWindowTitle("Error")
-            error_dialog.setText("파일명의 형식이 잘못되었습니다. '_숫자' 형식으로 입력해주세요.")
-            error_dialog.exec_()
-            return
-        
-        # OBS Studio 녹화 시작
-        try:
-            cl = obs.ReqClient(host='localhost', port=OBS_WEBSOCKET_PORT, password=OBS_WEBSOCKET_PASSWORD, timeout=3)
-            cl.start_record()
-            cl.disconnect()
-        except ConnectionRefusedError:
-            error_dialog = QMessageBox(self)
-            error_dialog.setMaximumSize(200, 100)
-            error_dialog.setIcon(QMessageBox.Critical)
-            error_dialog.setWindowTitle("Error")
-            error_dialog.setText("OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
-            error_dialog.exec_()
-            return
-
+    def start_recording_rokoko(self):
         clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/start"
         data = {
@@ -131,28 +113,8 @@ class CWidget(QWidget):
             'time': '',  # 필요 시 여기에 타임코드 추가
         }
         response = requests.post(url, json=data)
-        print(f"Start recording: {response.status_code}")
 
-        self.is_recording = True
-        self.start_blinking()
-        self.line_edit.setEnabled(False)
-
-    def stop_recording(self):
-        if not self.is_recording:
-            return
-        # OBS Studio 녹화 중지
-        try:
-            cl = obs.ReqClient(host='localhost', port=OBS_WEBSOCKET_PORT, password=OBS_WEBSOCKET_PASSWORD, timeout=3)
-            cl.stop_record()
-            cl.disconnect()
-        except ConnectionRefusedError:
-            error_dialog = QMessageBox(self)
-            error_dialog.setMaximumSize(200, 100)
-            error_dialog.setIcon(QMessageBox.Critical)
-            error_dialog.setWindowTitle("Error")
-            error_dialog.setText("OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
-            error_dialog.exec_()
-
+    def stop_recording_rokoko(self):
         clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/stop"
         data = {
@@ -161,12 +123,72 @@ class CWidget(QWidget):
             'back_to_live': BACK_TO_LIVE,
         }
         response = requests.post(url, json=data)
-        print(f"Stop recording: {response.status_code}")
 
+    def start_recording_obs(self):
+        cl = obs.ReqClient(host='localhost', port=OBS_WEBSOCKET_PORT, password=OBS_WEBSOCKET_PASSWORD, timeout=3)
+        new_record_dir = os.path.join(self.obs_save_dir_path, self.line_edit.text())
+        os.makedirs(new_record_dir, exist_ok=True)
+        cl.set_record_directory(new_record_dir)
+        print(f'New record directory: {new_record_dir}')
+        cl.start_record()
+        cl.disconnect()
+
+    def stop_recording_obs(self):
+        cl = obs.ReqClient(host='localhost', port=OBS_WEBSOCKET_PORT, password=OBS_WEBSOCKET_PASSWORD, timeout=3)
+        cl.stop_record()
+        cl.disconnect()
+
+    def start_recording(self):
+        if self.is_recording:
+            return
+        try:
+            current_number = int(self.line_edit.text().split('_')[-1])
+        except (ValueError, IndexError):
+            self.display_error_dialog(QMessageBox.Warning, "파일명의 형식이 잘못되었습니다. '_숫자' 형식으로 입력해주세요.")
+            return
+        # Rokoko Studio 녹화 시작
+        # try:
+        #     self.start_recording_rokoko()
+        # except requests.exceptions.ConnectionError:
+        #     self.display_error_dialog(QMessageBox.Icon.Critical, "Rokoko Studio와 연결할 수 없습니다. Rokoko Studio가 실행 중인지 확인해주세요.")
+        #     return
+        # OBS Studio 녹화 시작
+        try:
+            self.start_recording_obs()
+        except ConnectionRefusedError:
+            self.display_error_dialog(QMessageBox.Icon.Critical, "OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
+            self.stop_recording_rokoko()
+            return
+
+        self.is_recording = True
+        self.start_blinking()
+        self.line_edit.setEnabled(False)
+
+    def stop_recording(self):
+        if not self.is_recording:
+            return
+        # Rokoko Studio 녹화 중지
+        # try:
+        #     self.stop_recording_rokoko()
+        # except requests.exceptions.ConnectionError:
+        #     self.display_error_dialog(QMessageBox.Icon.Critical, "Rokoko Studio와 연결할 수 없습니다. Rokoko Studio가 실행 중인지 확인해주세요.")
+        # OBS Studio 녹화 중지
+        try:
+            self.stop_recording_obs()
+        except ConnectionRefusedError:
+            self.display_error_dialog(QMessageBox.Icon.Critical, "OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
+            
         self.is_recording = False
         self.increment_take()
         self.line_edit.setEnabled(True)
 
+    def display_error_dialog(self, type, message):
+        error_dialog = QMessageBox(self)
+        error_dialog.setMaximumSize(200, 100)
+        error_dialog.setIcon(type)
+        error_dialog.setWindowTitle("Error")
+        error_dialog.setText(message)
+        error_dialog.exec_()
     
 if __name__ == '__main__':
     app = QApplication(sys.argv)
