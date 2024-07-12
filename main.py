@@ -6,6 +6,7 @@ import obsws_python as obs
 
 from PyQt5.QtWidgets import QApplication, QFileDialog, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 from PyQt5.QtCore import Qt, QTimer
+
 # API 설정
 OBS_WEBSOCKET_PORT = 4455  # 웹소켓 서버 URL
 OBS_WEBSOCKET_PASSWORD = "123456"  # 설정한 웹소켓 비밀번호
@@ -14,7 +15,9 @@ PORT = '14053'
 API_KEY = '1234'
 CLIP_DIR = 'tmp'
 BACK_TO_LIVE = False
+
 # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+
 class CWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -27,7 +30,7 @@ class CWidget(QWidget):
         self.timer.timeout.connect(self.toggle_button_color)
     def initUI(self):
         self.setWindowTitle('Mocap Controller')
-        self.setGeometry(100, 100, 200, 100)
+        self.setGeometry(100, 100, 400, 100)
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
         # QLineEdit 위젯 추가
@@ -36,7 +39,7 @@ class CWidget(QWidget):
         self.line_edit.setPlaceholderText('여기에 경로를 입력해주세요.')
         main_layout.addWidget(self.line_edit)
         
-        self.text_button = QPushButton('OBS save path')
+        self.text_button = QPushButton('OBS save path: None')
         self.text_button.clicked.connect(self.set_obs_save_path)
         main_layout.addWidget(self.text_button)
 
@@ -66,6 +69,7 @@ class CWidget(QWidget):
         self.obs_save_dir_path = QFileDialog.getExistingDirectory(self, 'Select OBS save path')
         if os.name == 'nt':
             self.obs_save_dir_path = self.obs_save_dir_path.replace('/', '\\')
+        self.text_button.setText(f'OBS save path: {self.obs_save_dir_path}')
 
     # 타이머를 시작 및 중지하는 함수
     def start_blinking(self):
@@ -73,6 +77,7 @@ class CWidget(QWidget):
     def stop_blinking(self):
         self.timer.stop()
         self.circle_button.setStyleSheet("color: black;")  # 깜빡임 멈추고 검정색으로 설정
+
     # 타이머가 만료될 때 호출되는 함수
     def toggle_button_color(self):
         current_color = self.circle_button.styleSheet()
@@ -80,6 +85,7 @@ class CWidget(QWidget):
             self.circle_button.setStyleSheet("color: black;")
         else:
             self.circle_button.setStyleSheet("color: red;")
+
     # 네모 버튼 클릭 시 텍스트 박스의 숫자를 증가 및 업데이트
     def increment_take(self):
         text = self.line_edit.text()
@@ -90,6 +96,7 @@ class CWidget(QWidget):
         text_increment = '_'.join(text_split)
         self.line_edit.setText(text_increment)
         self.stop_blinking()  # 네모 버튼 클릭 시 깜빡임 멈추기
+
     def start_recording_rokoko(self):
         clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/start"
@@ -98,6 +105,7 @@ class CWidget(QWidget):
             'time': '',  # 필요 시 여기에 타임코드 추가
         }
         response = requests.post(url, json=data)
+
     def stop_recording_rokoko(self):
         clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/stop"
@@ -121,9 +129,14 @@ class CWidget(QWidget):
         cl = obs.ReqClient(host='localhost', port=OBS_WEBSOCKET_PORT, password=OBS_WEBSOCKET_PASSWORD, timeout=3)
         cl.stop_record()
         cl.disconnect()
+
     def start_recording(self):
         if self.is_recording:
             return
+        if self.obs_save_dir_path is None:
+            self.display_error_dialog(QMessageBox.Icon.Critical, "OBS Studio 녹화 경로를 설정해주세요.")
+            return
+        
         try:
             current_number = int(self.line_edit.text().split('_')[-1])
         except (ValueError, IndexError):
@@ -145,6 +158,7 @@ class CWidget(QWidget):
         self.is_recording = True
         self.start_blinking()
         self.line_edit.setEnabled(False)
+
     def stop_recording(self):
         if not self.is_recording:
             return
@@ -161,6 +175,7 @@ class CWidget(QWidget):
         self.is_recording = False
         self.increment_take()
         self.line_edit.setEnabled(True)
+
     def display_error_dialog(self, type, message):
         error_dialog = QMessageBox(self)
         error_dialog.setMaximumSize(200, 100)
@@ -168,6 +183,7 @@ class CWidget(QWidget):
         error_dialog.setWindowTitle("Error")
         error_dialog.setText(message)
         error_dialog.exec_()
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     w = CWidget()
