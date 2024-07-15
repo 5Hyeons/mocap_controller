@@ -41,6 +41,7 @@ Mocap Controller is a simple application designed to facilitate the simultaneous
 - **OBS Studio**: Must be installed and set up with OBS WebSocket plugin.
 - **Rokoko Studio**: Must be installed and configured for motion capture.
 - **obsws_python**: Python library for interacting with OBS WebSocket API.
+- **pythonosc**: Python library for interacting with live link face app
 - **PyQt5**: Python library for creating the graphical user interface.
 
 ### Installation
