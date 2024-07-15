@@ -4,7 +4,7 @@ import json
 import requests
 import obsws_python as obs
 
-from PyQt5.QtWidgets import QApplication, QFileDialog, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
+from PyQt5.QtWidgets import QApplication, QFileDialog, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QLabel
 from PyQt5.QtCore import Qt, QTimer
 from pythonosc import udp_client
 
@@ -17,11 +17,6 @@ PORT = '14053'
 API_KEY = '1234'
 # CLIP_DIR = 'tmp'
 BACK_TO_LIVE = False
-# OSC IP and port (아이폰 라이브 링크 페이스 앱에서 확인 가능)
-OSC_IP = "172.30.1.15"
-OSC_PORT = 8000  # Live Link Face 앱에서 사용하는 기본 포트 번호
-# OSC 클라이언트를 생성
-OSC_CLIENT = udp_client.SimpleUDPClient(OSC_IP, OSC_PORT)
 
 # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 
@@ -49,6 +44,24 @@ class CWidget(QWidget):
         self.text_button = QPushButton('OBS save path: None')
         self.text_button.clicked.connect(self.set_obs_save_path)
         main_layout.addWidget(self.text_button)
+
+        hbox = QHBoxLayout()
+        label = QLabel('Live Link Face IP: ')
+        label.setFixedWidth(130)
+        hbox.addWidget(label)
+        self.osc_ip_line_edit = QLineEdit()
+        self.osc_ip_line_edit.setPlaceholderText('여기에 아이폰 IP를 입력해주세요')
+        hbox.addWidget(self.osc_ip_line_edit)
+        main_layout.addLayout(hbox)
+
+        hbox = QHBoxLayout()
+        label = QLabel('Live Link Face PORT: ')
+        label.setFixedWidth(130)
+        hbox.addWidget(label)
+        self.osc_port_line_edit = QLineEdit()
+        self.osc_port_line_edit.setPlaceholderText('여기에 PORT를 입력해주세요')
+        hbox.addWidget(self.osc_port_line_edit)
+        main_layout.addLayout(hbox)
 
         # 버튼 레이아웃 설정
         button_layout = QHBoxLayout()
@@ -141,12 +154,20 @@ class CWidget(QWidget):
 
     # 녹화를 시작하는 함수
     def start_recording_livelinkface(self, slate="default_slate", take=1):
-        OSC_CLIENT.send_message("/RecordStart", [slate, take])
+        # OSC 클라이언트를 생성합니다.
+        osc_ip = self.osc_ip_line_edit.text()
+        osc_port = int(self.osc_port_line_edit.text())
+        osc_client = udp_client.SimpleUDPClient(osc_ip, osc_port)
+        osc_client.send_message("/RecordStart", [slate, take])
         print(f"라이브 링크 페이스 녹화 시작 명령을 보냈습니다. 슬레이트: {slate}, 테이크: {take}")
 
     # 녹화를 중지하는 함수
     def stop_recording_livelinkface(self):
-        OSC_CLIENT.send_message("/RecordStop", 1)
+        # OSC 클라이언트를 생성
+        osc_ip = self.osc_ip_line_edit.text()
+        osc_port = int(self.osc_port_line_edit.text())
+        osc_client = udp_client.SimpleUDPClient(osc_ip, osc_port)
+        osc_client.send_message("/RecordStop", 1)
         print("라이브 링크 페이스 녹화 중지 명령을 보냈습니다.")
 
     def start_recording(self):
