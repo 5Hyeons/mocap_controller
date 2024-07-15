@@ -6,15 +6,22 @@ import obsws_python as obs
 
 from PyQt5.QtWidgets import QApplication, QFileDialog, QLineEdit, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 from PyQt5.QtCore import Qt, QTimer
+from pythonosc import udp_client
+
 
 # API 설정
 OBS_WEBSOCKET_PORT = 4455  # 웹소켓 서버 URL
-OBS_WEBSOCKET_PASSWORD = "123456"  # 설정한 웹소켓 비밀번호
+OBS_WEBSOCKET_PASSWORD = "123456"  # 설정한 웹소켓 비밀번호 (사용 안 할 수도 있음)
 IP_ADDRESS = '127.0.0.1'
 PORT = '14053'
 API_KEY = '1234'
-CLIP_DIR = 'tmp'
+# CLIP_DIR = 'tmp'
 BACK_TO_LIVE = False
+# OSC IP and port (아이폰 라이브 링크 페이스 앱에서 확인 가능)
+OSC_IP = "172.30.1.15"
+OSC_PORT = 8000  # Live Link Face 앱에서 사용하는 기본 포트 번호
+# OSC 클라이언트를 생성
+OSC_CLIENT = udp_client.SimpleUDPClient(OSC_IP, OSC_PORT)
 
 # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 
@@ -98,7 +105,8 @@ class CWidget(QWidget):
         self.stop_blinking()  # 네모 버튼 클릭 시 깜빡임 멈추기
 
     def start_recording_rokoko(self):
-        clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
+        # clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
+        clip_name = self.line_edit.text()
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/start"
         data = {
             'filename': clip_name,
@@ -107,7 +115,8 @@ class CWidget(QWidget):
         response = requests.post(url, json=data)
 
     def stop_recording_rokoko(self):
-        clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
+        # clip_name = os.path.join(CLIP_DIR, self.line_edit.text())
+        clip_name = self.line_edit.text()
         url = f"http://{IP_ADDRESS}:{PORT}/v1/{API_KEY}/recording/stop"
         data = {
             'filename': clip_name,
@@ -130,13 +139,22 @@ class CWidget(QWidget):
         cl.stop_record()
         cl.disconnect()
 
+    # 녹화를 시작하는 함수
+    def start_recording_livelinkface(self, slate="default_slate", take=1):
+        OSC_CLIENT.send_message("/RecordStart", [slate, take])
+        print(f"라이브 링크 페이스 녹화 시작 명령을 보냈습니다. 슬레이트: {slate}, 테이크: {take}")
+
+    # 녹화를 중지하는 함수
+    def stop_recording_livelinkface(self):
+        OSC_CLIENT.send_message("/RecordStop", 1)
+        print("라이브 링크 페이스 녹화 중지 명령을 보냈습니다.")
+
     def start_recording(self):
         if self.is_recording:
             return
         if self.obs_save_dir_path is None:
             self.display_error_dialog(QMessageBox.Icon.Critical, "OBS Studio 녹화 경로를 설정해주세요.")
             return
-        
         try:
             current_number = int(self.line_edit.text().split('_')[-1])
         except (ValueError, IndexError):
@@ -155,6 +173,13 @@ class CWidget(QWidget):
             self.display_error_dialog(QMessageBox.Icon.Critical, "OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
             self.stop_recording_rokoko()
             return
+        # Live Link Face 녹화 시작
+        try:
+            slate = '_'.join(self.line_edit.text().split('_')[:-1])
+            self.start_recording_livelinkface(slate=slate, take=current_number)
+        except:
+            print("Live Link Face와 연결할 수 없습니다.")
+
         self.is_recording = True
         self.start_blinking()
         self.line_edit.setEnabled(False)
@@ -172,6 +197,11 @@ class CWidget(QWidget):
             self.stop_recording_obs()
         except ConnectionRefusedError:
             self.display_error_dialog(QMessageBox.Icon.Critical, "OBS Studio와 연결할 수 없습니다. OBS Studio가 실행 중인지 확인해주세요.")
+        # Live Link Face 녹화 중지
+        try:
+            self.stop_recording_livelinkface()
+        except:
+            print("Live Link Face와 연결할 수 없습니다.")
         self.is_recording = False
         self.increment_take()
         self.line_edit.setEnabled(True)
