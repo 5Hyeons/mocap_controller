@@ -46,21 +46,39 @@ class CWidget(QWidget):
         main_layout.addWidget(self.text_button)
 
         hbox = QHBoxLayout()
-        label = QLabel('Live Link Face IP: ')
-        label.setFixedWidth(130)
+        label = QLabel('1. Live Link Face IP: ')
+        label.setFixedWidth(150)
         hbox.addWidget(label)
-        self.osc_ip_line_edit = QLineEdit()
-        self.osc_ip_line_edit.setPlaceholderText('여기에 아이폰 IP를 입력해주세요')
-        hbox.addWidget(self.osc_ip_line_edit)
+        self.osc_ip_line_edit1 = QLineEdit()
+        self.osc_ip_line_edit1.setPlaceholderText('여기에 아이폰 IP를 입력해주세요')
+        hbox.addWidget(self.osc_ip_line_edit1)
         main_layout.addLayout(hbox)
 
         hbox = QHBoxLayout()
-        label = QLabel('Live Link Face PORT: ')
-        label.setFixedWidth(130)
+        label = QLabel('1. Live Link Face PORT: ')
+        label.setFixedWidth(150)
         hbox.addWidget(label)
-        self.osc_port_line_edit = QLineEdit()
-        self.osc_port_line_edit.setPlaceholderText('여기에 PORT를 입력해주세요')
-        hbox.addWidget(self.osc_port_line_edit)
+        self.osc_port_line_edit1 = QLineEdit()
+        self.osc_port_line_edit1.setPlaceholderText('여기에 PORT를 입력해주세요')
+        hbox.addWidget(self.osc_port_line_edit1)
+        main_layout.addLayout(hbox)
+
+        hbox = QHBoxLayout()
+        label = QLabel('2. Live Link Face IP: ')
+        label.setFixedWidth(150)
+        hbox.addWidget(label)
+        self.osc_ip_line_edit2 = QLineEdit()
+        self.osc_ip_line_edit2.setPlaceholderText('여기에 아이폰 IP를 입력해주세요')
+        hbox.addWidget(self.osc_ip_line_edit2)
+        main_layout.addLayout(hbox)
+
+        hbox = QHBoxLayout()
+        label = QLabel('2. Live Link Face PORT: ')
+        label.setFixedWidth(150)
+        hbox.addWidget(label)
+        self.osc_port_line_edit2 = QLineEdit()
+        self.osc_port_line_edit2.setPlaceholderText('여기에 PORT를 입력해주세요')
+        hbox.addWidget(self.osc_port_line_edit2)
         main_layout.addLayout(hbox)
 
         # 버튼 레이아웃 설정
@@ -154,21 +172,31 @@ class CWidget(QWidget):
 
     # 녹화를 시작하는 함수
     def start_recording_livelinkface(self, slate="default_slate", take=1):
-        # OSC 클라이언트를 생성합니다.
-        osc_ip = self.osc_ip_line_edit.text()
-        osc_port = int(self.osc_port_line_edit.text())
-        osc_client = udp_client.SimpleUDPClient(osc_ip, osc_port)
-        osc_client.send_message("/RecordStart", [slate, take])
-        print(f"라이브 링크 페이스 녹화 시작 명령을 보냈습니다. 슬레이트: {slate}, 테이크: {take}")
+        osc_ip1 = self.osc_ip_line_edit1.text()
+        osc_port1 = int(self.osc_port_line_edit1.text())
+        osc_client1 = udp_client.SimpleUDPClient(osc_ip1, osc_port1)
+        osc_client1.send_message("/RecordStart", [slate, take])
+        print(f"1번 라이브 링크 페이스 녹화 시작 명령을 보냈습니다. 슬레이트: {slate}, 테이크: {take}")
+
+        osc_ip2 = self.osc_ip_line_edit2.text()
+        osc_port2 = int(self.osc_port_line_edit2.text())
+        osc_client2 = udp_client.SimpleUDPClient(osc_ip2, osc_port2)
+        osc_client2.send_message("/RecordStart", [slate, take])
+        print(f"2번 라이브 링크 페이스 녹화 시작 명령을 보냈습니다. 슬레이트: {slate}, 테이크: {take}")
 
     # 녹화를 중지하는 함수
     def stop_recording_livelinkface(self):
-        # OSC 클라이언트를 생성
-        osc_ip = self.osc_ip_line_edit.text()
-        osc_port = int(self.osc_port_line_edit.text())
-        osc_client = udp_client.SimpleUDPClient(osc_ip, osc_port)
-        osc_client.send_message("/RecordStop", 1)
-        print("라이브 링크 페이스 녹화 중지 명령을 보냈습니다.")
+        osc_ip1 = self.osc_ip_line_edit1.text()
+        osc_port1 = int(self.osc_port_line_edit1.text())
+        osc_client1 = udp_client.SimpleUDPClient(osc_ip1, osc_port1)
+        osc_client1.send_message("/RecordStop", 1)
+        print("1번 라이브 링크 페이스 녹화 중지 명령을 보냈습니다.")
+
+        osc_ip2 = self.osc_ip_line_edit2.text()
+        osc_port2 = int(self.osc_port_line_edit2.text())
+        osc_client2 = udp_client.SimpleUDPClient(osc_ip2, osc_port2)
+        osc_client2.send_message("/RecordStop", 1)
+        print("2번 라이브 링크 페이스 녹화 중지 명령을 보냈습니다.")
 
     def start_recording(self):
         if self.is_recording:
